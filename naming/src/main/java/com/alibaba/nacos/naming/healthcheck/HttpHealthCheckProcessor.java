@@ -15,20 +15,13 @@
  */
 package com.alibaba.nacos.naming.healthcheck;
 
+import static com.alibaba.nacos.naming.misc.Loggers.SRV_LOG;
 import com.alibaba.nacos.api.naming.pojo.AbstractHealthChecker;
 import com.alibaba.nacos.naming.core.Cluster;
 import com.alibaba.nacos.naming.core.Instance;
 import com.alibaba.nacos.naming.misc.SwitchDomain;
 import com.alibaba.nacos.naming.monitor.MetricsMonitor;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.AsyncHttpClient;
-import com.ning.http.client.AsyncHttpClientConfig;
-import com.ning.http.client.Response;
 import io.netty.channel.ConnectTimeoutException;
-import org.apache.commons.collections.CollectionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
@@ -36,8 +29,16 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-
-import static com.alibaba.nacos.naming.misc.Loggers.SRV_LOG;
+import org.apache.commons.collections.CollectionUtils;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.BoundRequestBuilder;
+import org.asynchttpclient.DefaultAsyncHttpClient;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig.Builder;
+import org.asynchttpclient.Response;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * HTTP health check processor
@@ -61,19 +62,18 @@ public class HttpHealthCheckProcessor implements HealthCheckProcessor {
 
     static {
         try {
-            AsyncHttpClientConfig.Builder builder = new AsyncHttpClientConfig.Builder();
+            Builder builder = new DefaultAsyncHttpClientConfig.Builder();
 
-            builder.setMaximumConnectionsTotal(-1);
-            builder.setMaximumConnectionsPerHost(-1);
-            builder.setAllowPoolingConnection(false);
-            builder.setFollowRedirects(false);
-            builder.setIdleConnectionTimeoutInMs(CONNECT_TIMEOUT_MS);
-            builder.setConnectionTimeoutInMs(CONNECT_TIMEOUT_MS);
-            builder.setCompressionEnabled(false);
-            builder.setIOThreadMultiplier(1);
+            builder.setMaxConnections(-1);
+            builder.setMaxConnectionsPerHost(-1);
+            
+            builder.setFollowRedirect(false);
+            builder.setConnectionTtl(CONNECT_TIMEOUT_MS);
+            builder.setCompressionEnforced(false);
+            builder.setIoThreadsCount(1);
             builder.setMaxRequestRetry(0);
             builder.setUserAgent("VIPServer");
-            asyncHttpClient = new AsyncHttpClient(builder.build());
+            asyncHttpClient = new DefaultAsyncHttpClient(builder.build());
         } catch (Throwable e) {
             SRV_LOG.error("[HEALTH-CHECK] Error while constructing HTTP asynchronous client", e);
         }
@@ -121,7 +121,7 @@ public class HttpHealthCheckProcessor implements HealthCheckProcessor {
                 URL host = new URL("http://" + ip.getIp() + ":" + ckPort);
                 URL target = new URL(host, healthChecker.getPath());
 
-                AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.prepareGet(target.toString());
+                BoundRequestBuilder builder = asyncHttpClient.prepareGet(target.toString());
                 Map<String, String> customHeaders = healthChecker.getCustomHeaders();
                 for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
                     if ("Host".equals(entry.getKey())) {
@@ -183,7 +183,6 @@ public class HttpHealthCheckProcessor implements HealthCheckProcessor {
             for (int deepth = 0; deepth < maxStackDepth && cause != null; deepth++) {
                 if (cause instanceof SocketTimeoutException
                         || cause instanceof ConnectTimeoutException
-                        || cause instanceof org.jboss.netty.channel.ConnectTimeoutException
                         || cause instanceof TimeoutException
                         || cause.getCause() instanceof TimeoutException) {
 

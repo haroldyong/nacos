@@ -26,11 +26,11 @@ import com.alibaba.nacos.naming.core.Service;
 import com.alibaba.nacos.naming.healthcheck.events.InstanceHeartbeatTimeoutEvent;
 import com.alibaba.nacos.naming.misc.*;
 import com.alibaba.nacos.naming.push.PushService;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.Response;
 
 import java.net.HttpURLConnection;
 import java.util.List;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.Response;
 
 
 /**

@@ -17,13 +17,12 @@ package com.alibaba.nacos.naming.misc;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.naming.boot.RunningConfig;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.Response;
-import org.apache.commons.lang3.StringUtils;
-
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.Response;
 
 /**
  * @author nacos

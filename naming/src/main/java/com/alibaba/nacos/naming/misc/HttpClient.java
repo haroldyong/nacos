@@ -1,17 +1,15 @@
 /*
  * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 package com.alibaba.nacos.naming.misc;
 
@@ -19,13 +17,30 @@ import com.alibaba.nacos.common.constant.HttpHeaderConsts;
 import com.alibaba.nacos.common.utils.HttpMethod;
 import com.alibaba.nacos.common.utils.IoUtils;
 import com.alibaba.nacos.common.utils.VersionUtils;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.AsyncHttpClient;
-import com.ning.http.client.AsyncHttpClientConfig;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPInputStream;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.*;
+import org.apache.http.HeaderElement;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
@@ -37,18 +52,11 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.zip.GZIPInputStream;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.BoundRequestBuilder;
+import org.asynchttpclient.DefaultAsyncHttpClient;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 
 /**
  * @author nacos
@@ -62,19 +70,22 @@ public class HttpClient {
     private static CloseableHttpClient postClient;
 
     static {
-        AsyncHttpClientConfig.Builder builder = new AsyncHttpClientConfig.Builder();
-        builder.setMaximumConnectionsTotal(-1);
-        builder.setMaximumConnectionsPerHost(128);
-        builder.setAllowPoolingConnection(true);
-        builder.setFollowRedirects(false);
-        builder.setIdleConnectionTimeoutInMs(TIME_OUT_MILLIS);
-        builder.setConnectionTimeoutInMs(CON_TIME_OUT_MILLIS);
-        builder.setCompressionEnabled(true);
-        builder.setIOThreadMultiplier(1);
+
+        DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder();
+
+
+        builder.setMaxConnections(-1);
+        builder.setMaxConnectionsPerHost(128);
+        builder.setFollowRedirect(false);
+        builder.setPooledConnectionIdleTimeout(TIME_OUT_MILLIS);
+        builder.setConnectionTtl(CON_TIME_OUT_MILLIS);
+        builder.setCompressionEnforced(true);
+        builder.setIoThreadsCount(1);
         builder.setMaxRequestRetry(0);
         builder.setUserAgent(UtilsAndCommons.SERVER_VERSION);
 
-        asyncHttpClient = new AsyncHttpClient(builder.build());
+        asyncHttpClient = new DefaultAsyncHttpClient(builder.build());
+
 
         HttpClientBuilder builder2 = HttpClients.custom();
         builder2.setUserAgent(UtilsAndCommons.SERVER_VERSION);
@@ -87,15 +98,17 @@ public class HttpClient {
     }
 
     public static HttpResult httpDelete(String url, List<String> headers, Map<String, String> paramValues) {
-        return request(url, headers, paramValues, StringUtils.EMPTY, CON_TIME_OUT_MILLIS, TIME_OUT_MILLIS, "UTF-8", "DELETE");
+        return request(url, headers, paramValues, StringUtils.EMPTY, CON_TIME_OUT_MILLIS, TIME_OUT_MILLIS, "UTF-8",
+                "DELETE");
     }
 
     public static HttpResult httpGet(String url, List<String> headers, Map<String, String> paramValues) {
-        return request(url, headers, paramValues, StringUtils.EMPTY, CON_TIME_OUT_MILLIS, TIME_OUT_MILLIS, "UTF-8", "GET");
+        return request(url, headers, paramValues, StringUtils.EMPTY, CON_TIME_OUT_MILLIS, TIME_OUT_MILLIS, "UTF-8",
+                "GET");
     }
 
-    public static HttpResult request(String url, List<String> headers, Map<String, String> paramValues, String body, int connectTimeout,
-                                     int readTimeout, String encoding, String method) {
+    public static HttpResult request(String url, List<String> headers, Map<String, String> paramValues, String body,
+            int connectTimeout, int readTimeout, String encoding, String method) {
         HttpURLConnection conn = null;
         try {
             String encodedContent = encodingParams(paramValues, encoding);
@@ -127,25 +140,29 @@ public class HttpClient {
         }
     }
 
-    public static void asyncHttpGet(String url, List<String> headers, Map<String, String> paramValues, AsyncCompletionHandler handler) throws Exception {
+    public static void asyncHttpGet(String url, List<String> headers, Map<String, String> paramValues,
+            AsyncCompletionHandler handler) throws Exception {
         asyncHttpRequest(url, headers, paramValues, handler, HttpMethod.GET);
     }
 
-    public static void asyncHttpPost(String url, List<String> headers, Map<String, String> paramValues, AsyncCompletionHandler handler) throws Exception {
+    public static void asyncHttpPost(String url, List<String> headers, Map<String, String> paramValues,
+            AsyncCompletionHandler handler) throws Exception {
         asyncHttpRequest(url, headers, paramValues, handler, HttpMethod.POST);
     }
 
-    public static void asyncHttpDelete(String url, List<String> headers, Map<String, String> paramValues, AsyncCompletionHandler handler) throws Exception {
+    public static void asyncHttpDelete(String url, List<String> headers, Map<String, String> paramValues,
+            AsyncCompletionHandler handler) throws Exception {
         asyncHttpRequest(url, headers, paramValues, handler, HttpMethod.DELETE);
     }
 
-    public static void asyncHttpRequest(String url, List<String> headers, Map<String, String> paramValues, AsyncCompletionHandler handler, String method) throws Exception {
+    public static void asyncHttpRequest(String url, List<String> headers, Map<String, String> paramValues,
+            AsyncCompletionHandler handler, String method) throws Exception {
         if (!MapUtils.isEmpty(paramValues)) {
             String encodedContent = encodingParams(paramValues, "UTF-8");
             url += (null == encodedContent) ? "" : ("?" + encodedContent);
         }
 
-        AsyncHttpClient.BoundRequestBuilder builder;
+        BoundRequestBuilder builder;
 
         switch (method) {
             case HttpMethod.GET:
@@ -179,12 +196,14 @@ public class HttpClient {
         }
     }
 
-    public static void asyncHttpPostLarge(String url, List<String> headers, String content, AsyncCompletionHandler handler) throws Exception {
+    public static void asyncHttpPostLarge(String url, List<String> headers, String content,
+            AsyncCompletionHandler handler) throws Exception {
         asyncHttpPostLarge(url, headers, content.getBytes(), handler);
     }
 
-    public static void asyncHttpPostLarge(String url, List<String> headers, byte[] content, AsyncCompletionHandler handler) throws Exception {
-        AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.preparePost(url);
+    public static void asyncHttpPostLarge(String url, List<String> headers, byte[] content,
+            AsyncCompletionHandler handler) throws Exception {
+        BoundRequestBuilder builder = asyncHttpClient.preparePost(url);
 
         if (!CollectionUtils.isEmpty(headers)) {
             for (String header : headers) {
@@ -206,8 +225,9 @@ public class HttpClient {
         }
     }
 
-    public static void asyncHttpDeleteLarge(String url, List<String> headers, String content, AsyncCompletionHandler handler) throws Exception {
-        AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.prepareDelete(url);
+    public static void asyncHttpDeleteLarge(String url, List<String> headers, String content,
+            AsyncCompletionHandler handler) throws Exception {
+        BoundRequestBuilder builder = asyncHttpClient.prepareDelete(url);
 
         if (!CollectionUtils.isEmpty(headers)) {
             for (String header : headers) {
@@ -233,12 +253,15 @@ public class HttpClient {
         return httpPost(url, headers, paramValues, "UTF-8");
     }
 
-    public static HttpResult httpPost(String url, List<String> headers, Map<String, String> paramValues, String encoding) {
+    public static HttpResult httpPost(String url, List<String> headers, Map<String, String> paramValues,
+            String encoding) {
         try {
 
             HttpPost httpost = new HttpPost(url);
 
-            RequestConfig requestConfig = RequestConfig.custom().setConnectionRequestTimeout(5000).setConnectTimeout(5000).setSocketTimeout(5000).setRedirectsEnabled(true).setMaxRedirects(5).build();
+            RequestConfig requestConfig =
+                    RequestConfig.custom().setConnectionRequestTimeout(5000).setConnectTimeout(5000)
+                            .setSocketTimeout(5000).setRedirectsEnabled(true).setMaxRedirects(5).build();
             httpost.setConfig(requestConfig);
 
             List<NameValuePair> nvps = new ArrayList<NameValuePair>();
@@ -256,20 +279,22 @@ public class HttpClient {
 
                 HeaderElement[] headerElements = entity.getContentType().getElements();
 
-                if (headerElements != null && headerElements.length > 0 && headerElements[0] != null &&
-                    headerElements[0].getParameterByName("charset") != null) {
+                if (headerElements != null && headerElements.length > 0 && headerElements[0] != null
+                        && headerElements[0].getParameterByName("charset") != null) {
                     charset = headerElements[0].getParameterByName("charset").getValue();
                 }
             }
 
-            return new HttpResult(response.getStatusLine().getStatusCode(), IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
+            return new HttpResult(response.getStatusLine().getStatusCode(),
+                    IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
         } catch (Throwable e) {
             return new HttpResult(500, e.toString(), Collections.<String, String>emptyMap());
         }
     }
 
-    public static void asyncHttpPutLarge(String url, Map<String, String> headers, byte[] content, AsyncCompletionHandler handler) throws Exception {
-        AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.preparePut(url);
+    public static void asyncHttpPutLarge(String url, Map<String, String> headers, byte[] content,
+            AsyncCompletionHandler handler) throws Exception {
+        BoundRequestBuilder builder = asyncHttpClient.preparePut(url);
 
         if (!headers.isEmpty()) {
             for (String headerKey : headers.keySet()) {
@@ -291,8 +316,9 @@ public class HttpClient {
         }
     }
 
-    public static void asyncHttpGetLarge(String url, Map<String, String> headers, byte[] content, AsyncCompletionHandler handler) throws Exception {
-        AsyncHttpClient.BoundRequestBuilder builder = asyncHttpClient.prepareGet(url);
+    public static void asyncHttpGetLarge(String url, Map<String, String> headers, byte[] content,
+            AsyncCompletionHandler handler) throws Exception {
+        BoundRequestBuilder builder = asyncHttpClient.prepareGet(url);
 
         if (!headers.isEmpty()) {
             for (String headerKey : headers.keySet()) {
@@ -327,7 +353,8 @@ public class HttpClient {
                 httpPut.setHeader(entry.getKey(), entry.getValue());
             }
 
-            httpPut.setEntity(new StringEntity(new String(content, StandardCharsets.UTF_8), ContentType.create("application/json", StandardCharsets.UTF_8)));
+            httpPut.setEntity(new StringEntity(new String(content, StandardCharsets.UTF_8),
+                    ContentType.create("application/json", StandardCharsets.UTF_8)));
 
             HttpResponse response = httpClient.execute(httpPut);
             HttpEntity entity = response.getEntity();
@@ -336,7 +363,7 @@ public class HttpClient {
             String charset = headerElements[0].getParameterByName("charset").getValue();
 
             return new HttpResult(response.getStatusLine().getStatusCode(),
-                IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
+                    IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
         } catch (Exception e) {
             return new HttpResult(500, e.toString(), Collections.<String, String>emptyMap());
         }
@@ -365,7 +392,7 @@ public class HttpClient {
             String charset = headerElements[0].getParameterByName("charset").getValue();
 
             return new HttpResult(response.getStatusLine().getStatusCode(),
-                IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
+                    IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
         } catch (Exception e) {
             return new HttpResult(500, e.toString(), Collections.<String, String>emptyMap());
         }
@@ -392,7 +419,7 @@ public class HttpClient {
             String charset = headerElements[0].getParameterByName("charset").getValue();
 
             return new HttpResult(response.getStatusLine().getStatusCode(),
-                IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
+                    IoUtils.toString(entity.getContent(), charset), Collections.<String, String>emptyMap());
         } catch (Exception e) {
             return new HttpResult(500, e.toString(), Collections.<String, String>emptyMap());
         }
@@ -447,20 +474,19 @@ public class HttpClient {
 
     private static void setHeaders(HttpURLConnection conn, List<String> headers, String encoding) {
         if (null != headers) {
-            for (Iterator<String> iter = headers.iterator(); iter.hasNext(); ) {
+            for (Iterator<String> iter = headers.iterator(); iter.hasNext();) {
                 conn.addRequestProperty(iter.next(), iter.next());
             }
         }
 
-        conn.addRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset="
-            + encoding);
+        conn.addRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + encoding);
         conn.addRequestProperty("Accept-Charset", encoding);
         conn.addRequestProperty(HttpHeaderConsts.CLIENT_VERSION_HEADER, VersionUtils.VERSION);
         conn.addRequestProperty(HttpHeaderConsts.USER_AGENT_HEADER, UtilsAndCommons.SERVER_VERSION);
     }
 
     public static String encodingParams(Map<String, String> params, String encoding)
-        throws UnsupportedEncodingException {
+            throws UnsupportedEncodingException {
         StringBuilder sb = new StringBuilder();
         if (null == params || params.isEmpty()) {
             return null;

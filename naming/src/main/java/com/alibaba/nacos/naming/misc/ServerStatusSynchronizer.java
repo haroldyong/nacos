@@ -16,13 +16,12 @@
 package com.alibaba.nacos.naming.misc;
 
 import com.alibaba.nacos.naming.boot.RunningConfig;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.Response;
-import org.springframework.util.StringUtils;
-
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.Response;
+import org.springframework.util.StringUtils;
 
 /**
  * Report local server status to other server

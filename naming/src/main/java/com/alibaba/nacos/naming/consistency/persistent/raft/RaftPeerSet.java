@@ -15,6 +15,7 @@
  */
 package com.alibaba.nacos.naming.consistency.persistent.raft;
 
+import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.core.utils.SystemUtils;
 import com.alibaba.nacos.naming.boot.RunningConfig;
@@ -24,24 +25,28 @@ import com.alibaba.nacos.naming.cluster.servers.ServerChangeListener;
 import com.alibaba.nacos.naming.misc.HttpClient;
 import com.alibaba.nacos.naming.misc.Loggers;
 import com.alibaba.nacos.naming.misc.NetUtils;
-import com.ning.http.client.AsyncCompletionHandler;
-import com.ning.http.client.Response;
+import java.net.HttpURLConnection;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.PostConstruct;
 import org.apache.commons.collections.SortedBag;
 import org.apache.commons.collections.bag.TreeBag;
 import org.apache.commons.lang3.StringUtils;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.Response;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
-import java.net.HttpURLConnection;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static com.alibaba.nacos.core.utils.SystemUtils.STANDALONE_MODE;
 
 /**
  * @author nacos
